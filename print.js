@@ -39,7 +39,7 @@
 
   /* ============================ CONFIG ==================================== */
   // REQUIRED: absolute URL of the hosted staffbase-print-libs.js file.
-  var LIB_URL = 'https://REPLACE-ME.example.com/path/to/staffbase-print-libs.js';
+  var LIB_URL = 'https://cdn.jsdelivr.net/gh/kwcbase/Printing@e8fdecafe24bb0dfdaf92e11f08c21e51fb084f4/staffbase-print-libs.js';
 
   // RECOMMENDED: Subresource Integrity hash of the hosted libs file.
   // This value matches the staffbase-print-libs.js generated alongside this script.
