@@ -253,53 +253,29 @@
     return wrap;
   }
 
-  /* ---------- html2canvas -> jsPDF with whitespace page breaks ------------- */
-  function findBestBreak(ctx, canvasW, targetY, bandPx) {
-    var top = Math.max(0, targetY - bandPx);
-    var band = ctx.getImageData(0, top, canvasW, Math.min(bandPx * 2, ctx.canvas.height - top));
-    var d = band.data, bestRow = band.height - 1, bestScore = -1;
-    for (var row = 0; row < band.height; row++) {
-      var white = 0;
-      for (var x = 0; x < canvasW; x += 6) {
-        var i = (row * canvasW + x) * 4;
-        if (d[i] > 245 && d[i + 1] > 245 && d[i + 2] > 245) white++;
-      }
-      if (white >= bestScore) { bestScore = white; bestRow = row; }
-    }
-    return top + bestRow;
-  }
-
+  /* ---------- html2canvas -> jsPDF : ONE continuous page (no page breaks) --- */
+  // Renders the whole article onto a single PDF page whose height matches the
+  // content, so the document scrolls as one long sheet instead of A4 pages.
   function canvasToPdf(canvas, filename) {
     var JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-    var pdf = new JsPDF('p', 'mm', 'a4');
-    var pageW = 210, pageH = 297, margin = 8;
-    var contentW = pageW - margin * 2;
-    var contentH = pageH - margin * 2;
-    var pxPerMM = canvas.width / contentW;
-    var pageHpx = Math.floor(contentH * pxPerMM);
-    var ctx = canvas.getContext('2d');
-    var pos = 0, first = true;
+    var margin = 8;                                       // mm
+    var pageW = 210;                                      // keep the familiar text column width
+    var contentW = pageW - margin * 2;                    // 194mm image width
+    var imgH = contentW * canvas.height / canvas.width;   // full height, aspect preserved
+    var pageH = imgH + margin * 2;
 
-    while (pos < canvas.height) {
-      var sliceH = Math.min(pageHpx, canvas.height - pos);
-      if (pos + sliceH < canvas.height) {
-        var brk = findBestBreak(ctx, canvas.width, pos + pageHpx, Math.floor(12 * pxPerMM));
-        if (brk > pos + pageHpx * 0.5) sliceH = brk - pos;
-      }
-      var page = document.createElement('canvas');
-      page.width = canvas.width;
-      page.height = pageHpx;
-      var pctx = page.getContext('2d');
-      pctx.fillStyle = '#fff';
-      pctx.fillRect(0, 0, page.width, page.height);
-      pctx.drawImage(canvas, 0, pos, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-
-      var img = page.toDataURL('image/jpeg', 0.95);
-      if (!first) pdf.addPage();
-      pdf.addImage(img, 'JPEG', margin, margin, contentW, contentH);
-      first = false;
-      pos += sliceH;
+    // A PDF page is capped at 14400 pt (~5080mm). Guard very long articles so the
+    // output isn't silently clipped; warn if we hit the ceiling.
+    var MAX_MM = 5000;
+    if (pageH > MAX_MM) {
+      console.warn('[sb-print] article taller than one PDF page allows (' +
+        Math.round(pageH) + 'mm) — capping at ' + MAX_MM + 'mm.');
+      pageH = MAX_MM;
+      imgH = pageH - margin * 2;
     }
+
+    var pdf = new JsPDF({ orientation: 'portrait', unit: 'mm', format: [pageW, pageH] });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, contentW, imgH);
     pdf.save(filename);
   }
 
